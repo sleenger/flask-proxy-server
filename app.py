@@ -4,6 +4,10 @@ import requests
 app = Flask(__name__)
 
 @app.route('/proxy', methods=['GET'])
+@app.route('/')
+def home():
+    return "🚀 Flask Proxy Server is Running!"
+
 def proxy():
     url = request.args.get('url')
     if not url:
