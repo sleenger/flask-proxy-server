@@ -10,7 +10,7 @@ def proxy():
         return jsonify({"error": "URL parameter is required"}), 400
 
     headers = {
-        "Authorization": f"Bearer YOUR_ORS_API_KEY_HERE"
+        "Authorization": f"5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629"
     }
 
     response = requests.get(url, headers=headers)
