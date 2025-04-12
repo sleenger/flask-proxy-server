@@ -88,10 +88,6 @@ def get_poi():
     payload = {
         "request": "pois",
         "geometry": {
-            "bbox": [
-                [longitude - 0.01, latitude - 0.01],
-                [longitude + 0.01, latitude + 0.01]
-            ],
             "geojson": {
                 "type": "Point",
                 "coordinates": [longitude, latitude]
@@ -99,7 +95,7 @@ def get_poi():
             "buffer": 2500
         },
         "filters": {
-            "category_ids": [202, 206]  # Healthcare
+            "category_ids": [202, 206]
         }
     }
 
@@ -119,10 +115,9 @@ def get_poi():
         props = feature.get("properties", {})
         tags = props.get("osm_tags", {})
         coords = feature.get("geometry", {}).get("coordinates", [])
-        category_ids = props.get("category_ids", {})
+        category_ids = props.get("category_ids", [])
 
-        # Check if category is hospital (206) or clinic (202)
-        if "206" in category_ids or "202" in category_ids:
+        if 206 in category_ids or 202 in category_ids:
             hospitals.append({
                 "name": tags.get("name", "Unknown"),
                 "lat": coords[1],
@@ -132,25 +127,17 @@ def get_poi():
                 "phone": tags.get("phone") or tags.get("contact:phone") or "Not Available"
             })
 
-    # Sort by nearest distance
     hospitals.sort(key=lambda x: x["distance"])
-
-    # Build nearest hospital LCD text
     nearest = hospitals[0] if hospitals else None
-    lcd_text = ""
-    if nearest:
-        lcd_text = (
-            f"Nearest Hospital:\n"
-            f"{nearest['name']}\n"
-            f"{int(nearest['distance'])}m away\n"
-            f"{nearest['address']}"
-        )
+    lcd_text = (
+        f"Nearest Hospital:\n{nearest['name']}\n"
+        f"{int(nearest['distance'])}m away\n{nearest['address']}"
+    ) if nearest else "No nearby hospital found"
 
     return jsonify({
         "hospitals": hospitals,
         "nearest_hospital_lcd": lcd_text
     })
-
 
 if __name__ == '__main__':
     app.run(debug=True)
