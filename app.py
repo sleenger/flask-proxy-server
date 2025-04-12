@@ -88,15 +88,15 @@ def get_poi():
     body = {
         "request": "pois",
         "geometry": {
-            "bbox": [[lon - 0.01, lat - 0.01], [lon + 0.01, lat + 0.01]],
+            "bbox": [[lon - 0.05, lat - 0.05], [lon + 0.05, lat + 0.05]],
             "geojson": {
                 "type": "Point",
                 "coordinates": [lon, lat]
             },
-            "buffer": 2000  # meters radius
+            "buffer": 5000
         },
         "filters": {
-            "categories": [ 211 ]  # Category for "Health" / hospitals
+            "categories": [211, 213, 214, 216]
         }
     }
 
@@ -108,13 +108,11 @@ def get_poi():
         results = []
 
         for feature in features:
-            name = feature["properties"].get("name", "Unknown")
-            dist = feature["properties"].get("distance", "N/A")
-            category = feature["properties"].get("category_ids", [])
+            props = feature["properties"]
             results.append({
-                "name": name,
-                "distance": dist,
-                "categories": category
+                "name": props.get("name", "Unknown"),
+                "distance": props.get("distance", "N/A"),
+                "categories": props.get("category_ids", [])
             })
 
         return jsonify({
@@ -126,7 +124,6 @@ def get_poi():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
-
 
 if __name__ == '__main__':
     app.run(debug=True)
