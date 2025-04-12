@@ -89,17 +89,16 @@ def get_poi():
     }
 
     payload = {
-        "request": "pois",
-        "geometry": {
-            "geojson": {
-                "type": "Point",
-                "coordinates": [longitude, latitude]
-            },
-            "buffer": 2500
-        },
-        "filters": {
-            "category_ids": [202, 206]
-        }
+    "request": "pois",
+    "geometry": {
+        "bbox": [
+            longitude - 0.02, latitude - 0.02,
+            longitude + 0.02, latitude + 0.02
+        ]
+    },
+    "filters": {
+        "category_ids": [202, 206]
+    }
     }
 
     try:
