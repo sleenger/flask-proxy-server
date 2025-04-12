@@ -86,9 +86,9 @@ def get_poi():
         data = request.get_json()
         lat = data.get('latitude')
         lon = data.get('longitude')
-        
+
         headers = {
-            'Authorization': os.getenv('5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629'),
+            'Authorization': '5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629',
             'Content-Type': 'application/json'
         }
 
@@ -99,7 +99,7 @@ def get_poi():
                     "type": "Point",
                     "coordinates": [lon, lat]
                 },
-                "buffer": 2000  # 2km radius
+                "buffer": 2000
             }
         }
 
@@ -111,14 +111,13 @@ def get_poi():
             pois = response.json().get("features", [])
             for poi in pois:
                 props = poi.get("properties", {})
-                categories = props.get("category_ids", {})
-                if any(cat.get("category_group") == "healthcare" for cat in categories.values()):
+                category_ids = props.get("category_ids", [])
+                if 265 in category_ids or 266 in category_ids:
                     hospitals.append({
-                        "name": props.get("osm_tags", {}).get("name"),
-                        "distance": props.get("distance"),
-                        "category": list(categories.values())[0].get("category_name"),
+                        "name": props.get("osm_tags", {}).get("name", "Unknown"),
                         "lat": poi.get("geometry", {}).get("coordinates", [])[1],
-                        "lon": poi.get("geometry", {}).get("coordinates", [])[0]
+                        "lon": poi.get("geometry", {}).get("coordinates", [])[0],
+                        "distance": props.get("distance", "N/A")
                     })
 
         return jsonify({
