@@ -79,53 +79,46 @@ def get_poi():
     if not lat or not lon:
         return jsonify({"error": "latitude and longitude are required"}), 400
 
-    # Define bbox around point (5km radius approx)
-    offset = 0.05
-    bbox = [[lon - offset, lat - offset], [lon + offset, lat + offset]]
-
     url = "https://api.openrouteservice.org/pois"
     headers = {
         "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",
-        "Content-Type": "application/json",
-        "Accept": "application/json"
+        "Content-Type": "application/json"
     }
 
     body = {
         "request": "pois",
         "geometry": {
-            "bbox": bbox,
             "geojson": {
                 "type": "Point",
                 "coordinates": [lon, lat]
             },
-            "buffer": 2000  # 2km radius
+            "buffer": 1500  # 1.5 km search radius
         },
         "filters": {
-            "category_ids": [211, 213, 214, 216]
+            "amenity": ["hospital", "clinic"]
         }
     }
 
     try:
-        response = requests.post(url, json=body, headers=headers)
+        response = requests.post(url, headers=headers, json=body)
         data = response.json()
 
-        features = data.get("features", [])
-        hospitals = []
-
-        for feature in features:
-            props = feature.get("properties", {})
-            geom = feature.get("geometry", {})
-            hospitals.append({
-                "name": props.get("name", "Unknown"),
-                "category_ids": props.get("category_ids", []),
-                "coordinates": geom.get("coordinates", []),
-            })
+        pois = []
+        for el in data.get("features", []):
+            tags = el["properties"].get("osm_tags", {})
+            if "name" in tags:
+                pois.append({
+                    "name": tags.get("name"),
+                    "type": tags.get("amenity"),
+                    "lat": el["geometry"]["coordinates"][1],
+                    "lon": el["geometry"]["coordinates"][0]
+                })
 
         return jsonify({
             "latitude": lat,
             "longitude": lon,
-            "poi_count": len(hospitals),
-            "hospitals": hospitals
+            "poi_count": len(pois),
+            "hospitals": pois
         })
 
     except Exception as e:
