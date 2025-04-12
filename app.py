@@ -86,6 +86,7 @@ def get_poi():
             'Content-Type': 'application/json'
         }
 
+        # Step 1: Get POIs
         query = {
             "request": "pois",
             "geometry": {
@@ -102,22 +103,38 @@ def get_poi():
 
         ors_url = "https://api.openrouteservice.org/pois"
         response = requests.post(ors_url, headers=headers, json=query)
+
+        pois = response.json().get("features", []) if response.status_code == 200 else []
         hospitals = []
 
-        if response.status_code == 200:
-            pois = response.json().get("features", [])
-            for poi in pois:
-                props = poi.get("properties", {})
-                category_ids = props.get("category_ids", {})
-                if "206" in category_ids or "202" in category_ids:
-                    hospitals.append({
-                        "name": props.get("osm_tags", {}).get("name", "Unknown"),
-                        "lat": poi.get("geometry", {}).get("coordinates", [])[1],
-                        "lon": poi.get("geometry", {}).get("coordinates", [])[0],
-                        "distance": props.get("distance", "N/A")
-                    })
+        # Step 2: Collect potential hospital POIs
+        for poi in pois:
+            props = poi.get("properties", {})
+            category_ids = props.get("category_ids", [])
+            if "206" in category_ids or "202" in category_ids:
+                hospitals.append({
+                    "name": props.get("osm_tags", {}).get("name", "Unknown"),
+                    "lat": poi.get("geometry", {}).get("coordinates", [])[1],
+                    "lon": poi.get("geometry", {}).get("coordinates", [])[0],
+                })
 
-        # Sort the hospitals by distance (in ascending order)
+        # Step 3: Limit to top 10 by straight-line distance (just for speed)
+        hospitals = sorted(hospitals, key=lambda x: ((x['lat'] - lat)**2 + (x['lon'] - lon)**2))[:10]
+
+        # Step 4: Calculate road distance for each hospital
+        for hospital in hospitals:
+            directions_url = "https://api.openrouteservice.org/v2/directions/driving-car"
+            coords = [[lon, lat], [hospital["lon"], hospital["lat"]]]
+            body = {"coordinates": coords}
+
+            dir_res = requests.post(directions_url, headers=headers, json=body)
+            if dir_res.status_code == 200:
+                dist = dir_res.json()['routes'][0]['summary']['distance']
+                hospital["distance"] = round(dist, 2)  # in meters
+            else:
+                hospital["distance"] = float('inf')  # fallback if error
+
+        # Step 5: Sort by actual road distance
         hospitals_sorted = sorted(hospitals, key=lambda x: x['distance'])
 
         return jsonify({
@@ -126,6 +143,7 @@ def get_poi():
             "poi_count": len(hospitals_sorted),
             "hospitals": hospitals_sorted
         })
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
