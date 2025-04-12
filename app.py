@@ -34,9 +34,9 @@ def get_speed_limit():
     if not lat or not lon:
         return jsonify({"error": "latitude and longitude are required"}), 400
 
-    url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
+    url = "https://api.openrouteservice.org/v2/directions/driving-car"
     headers = {
-        "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",
+        "Authorization": "your-api-key",  # Replace with your actual key
         "Content-Type": "application/json"
     }
     body = {
@@ -47,23 +47,23 @@ def get_speed_limit():
         response = requests.post(url, json=body, headers=headers)
         data = response.json()
 
-        # Debug: Check if features exist
-        if "features" not in data or len(data["features"]) == 0:
-            return jsonify({"error": "No features found in response"}), 500
+        summary = data["features"][0]["properties"]["summary"]
+        distance = summary["distance"]
+        duration = summary["duration"]
 
-        properties = data["features"][0]["properties"]
-        segments = properties["segments"][0]
+        # Estimated speed limit
+        speed_limit = round((distance / duration) * 3.6, 1) if duration > 0 else "N/A"
 
-        # NOTE: OpenRouteService doesn't give actual speed limits here by default!
-        # We’ll return segment summary for now (duration, distance)
         return jsonify({
             "latitude": lat,
             "longitude": lon,
-            "summary": segments.get("summary", {}),
-            "distance": segments.get("distance", "N/A"),
-            "duration": segments.get("duration", "N/A")
+            "distance": distance,
+            "duration": duration,
+            "speed_limit": speed_limit
         })
+
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 if __name__ == '__main__':
     app.run(debug=True)
