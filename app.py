@@ -25,6 +25,7 @@ def test():
     response = requests.get(url, headers=headers)
 
     return jsonify(response.json())
+    
 @app.route('/get-speed-limit', methods=['POST'])
 def get_speed_limit():
     data = request.get_json()
@@ -34,9 +35,9 @@ def get_speed_limit():
     if not lat or not lon:
         return jsonify({"error": "latitude and longitude are required"}), 400
 
-    url = "https://api.openrouteservice.org/v2/directions/driving-car"
+    url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
     headers = {
-        "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",  # Replace with your actual key
+        "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",
         "Content-Type": "application/json"
     }
     body = {
@@ -47,11 +48,16 @@ def get_speed_limit():
         response = requests.post(url, json=body, headers=headers)
         data = response.json()
 
-        summary = data["features"][0]["properties"]["summary"]
-        distance = summary["distance"]
-        duration = summary["duration"]
+        if "features" not in data or len(data["features"]) == 0:
+            return jsonify({"error": "No features found in response"}), 500
 
-        # Estimated speed limit
+        properties = data["features"][0]["properties"]
+        segments = properties["segments"][0]
+
+        distance = segments.get("distance", 0)
+        duration = segments.get("duration", 0)
+
+        # Estimate speed limit in km/h
         speed_limit = round((distance / duration) * 3.6, 1) if duration > 0 else "N/A"
 
         return jsonify({
@@ -59,11 +65,11 @@ def get_speed_limit():
             "longitude": lon,
             "distance": distance,
             "duration": duration,
-            "speed_limit": speed_limit
+            "estimated_speed_limit": speed_limit
         })
-
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
