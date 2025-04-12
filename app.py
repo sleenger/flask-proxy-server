@@ -80,6 +80,9 @@ def get_poi():
     latitude = data.get("latitude")
     longitude = data.get("longitude")
 
+    if not latitude or not longitude:
+        return jsonify({"error": "latitude and longitude are required"}), 400
+
     headers = {
         'Authorization': "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",
         'Content-Type': 'application/json'
@@ -88,11 +91,14 @@ def get_poi():
     payload = {
         "request": "pois",
         "geometry": {
+            "bbox": [
+                [longitude - 0.01, latitude - 0.01],
+                [longitude + 0.01, latitude + 0.01]
+            ],
             "geojson": {
                 "type": "Point",
                 "coordinates": [longitude, latitude]
-            },
-            "buffer": 2500
+            }
         },
         "filters": {
             "category_ids": [202, 206]
