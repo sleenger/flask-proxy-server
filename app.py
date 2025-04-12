@@ -73,53 +73,50 @@ def get_speed_limit():
 @app.route('/get-poi', methods=['POST'])
 def get_poi():
     data = request.get_json()
-    lat = data.get("latitude")
-    lon = data.get("longitude")
-
-    if not lat or not lon:
-        return jsonify({"error": "latitude and longitude are required"}), 400
-
-    url = "https://api.openrouteservice.org/pois"
+    lat = data.get('latitude')
+    lon = data.get('longitude')
+    
     headers = {
-        "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",
-        "Content-Type": "application/json"
+        'Authorization': os.getenv('ORS_API_KEY'),
+        'Content-Type': 'application/json'
     }
 
-    body = {
+    query = {
         "request": "pois",
         "geometry": {
             "geojson": {
                 "type": "Point",
                 "coordinates": [lon, lat]
             },
-            "buffer": 1500  # 1.5 km search radius
-        },
-        "filters": {
-            "amenity": ["hospital", "clinic"]
+            "buffer": 2000  # 2km radius
         }
     }
 
-    try:
-        response = requests.post(url, headers=headers, json=body)
-        data = response.json()
+    ors_url = "https://api.openrouteservice.org/pois"
+    response = requests.post(ors_url, headers=headers, json=query)
+    hospitals = []
 
-        pois = []
-        for el in data.get("features", []):
-            tags = el["properties"].get("osm_tags", {})
-            if "name" in tags:
-                pois.append({
-                    "name": tags.get("name"),
-                    "type": tags.get("amenity"),
-                    "lat": el["geometry"]["coordinates"][1],
-                    "lon": el["geometry"]["coordinates"][0]
+    if response.status_code == 200:
+        pois = response.json().get("features", [])
+        for poi in pois:
+            props = poi.get("properties", {})
+            categories = props.get("category_ids", {})
+            if any(cat.get("category_group") == "healthcare" for cat in categories.values()):
+                hospitals.append({
+                    "name": props.get("osm_tags", {}).get("name"),
+                    "distance": props.get("distance"),
+                    "category": list(categories.values())[0].get("category_name"),
+                    "lat": poi.get("geometry", {}).get("coordinates", [])[1],
+                    "lon": poi.get("geometry", {}).get("coordinates", [])[0]
                 })
 
-        return jsonify({
-            "latitude": lat,
-            "longitude": lon,
-            "poi_count": len(pois),
-            "hospitals": pois
-        })
+    return jsonify({
+        "latitude": lat,
+        "longitude": lon,
+        "poi_count": len(hospitals),
+        "hospitals": hospitals
+    })
+
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
