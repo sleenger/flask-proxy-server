@@ -88,18 +88,16 @@ def get_poi():
         'Content-Type': 'application/json'
     }
 
+    # Use bounding box of ±0.03 deg (~3km x 3km)
+    delta = 0.03
+    bbox = [
+        [longitude - delta, latitude - delta],
+        [longitude + delta, latitude + delta]
+    ]
+
     payload = {
         "request": "pois",
-        "geometry": {
-            "bbox": [
-                [longitude - 0.01, latitude - 0.01],
-                [longitude + 0.01, latitude + 0.01]
-            ],
-            "geojson": {
-                "type": "Point",
-                "coordinates": [longitude, latitude]
-            }
-        },
+        "bbox": bbox,
         "filters": {
             "category_ids": [202, 206]
         }
@@ -112,18 +110,19 @@ def get_poi():
             json=payload
         )
         response.raise_for_status()
+        pois = response.json().get("features", [])
     except Exception as e:
         return jsonify({"error": f"ORS API failed: {str(e)}"}), 500
 
     hospitals = []
 
-    for feature in response.json().get("features", []):
+    for feature in pois:
         props = feature.get("properties", {})
         tags = props.get("osm_tags", {})
         coords = feature.get("geometry", {}).get("coordinates", [])
         category_ids = props.get("category_ids", [])
 
-        if 206 in category_ids or 202 in category_ids:
+        if 202 in category_ids or 206 in category_ids:
             hospitals.append({
                 "name": tags.get("name", "Unknown"),
                 "lat": coords[1],
@@ -133,8 +132,9 @@ def get_poi():
                 "phone": tags.get("phone") or tags.get("contact:phone") or "Not Available"
             })
 
-    hospitals.sort(key=lambda x: x["distance"])
+    hospitals.sort(key=lambda x: x["distance"] if x["distance"] != -1 else 999999)
     nearest = hospitals[0] if hospitals else None
+
     lcd_text = (
         f"Nearest Hospital:\n{nearest['name']}\n"
         f"{int(nearest['distance'])}m away\n{nearest['address']}"
