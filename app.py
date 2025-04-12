@@ -88,16 +88,15 @@ def get_poi():
         'Content-Type': 'application/json'
     }
 
-    # Use bounding box of ±0.03 deg (~3km x 3km)
-    delta = 0.03
-    bbox = [
-        [longitude - delta, latitude - delta],
-        [longitude + delta, latitude + delta]
-    ]
-
     payload = {
         "request": "pois",
-        "bbox": bbox,
+        "geometry": {
+            "geojson": {
+                "type": "Point",
+                "coordinates": [longitude, latitude]
+            },
+            "buffer": 2500
+        },
         "filters": {
             "category_ids": [202, 206]
         }
