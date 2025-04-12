@@ -76,72 +76,55 @@ def get_speed_limit():
         
 @app.route('/get-poi', methods=['POST'])
 def get_poi():
-    data = request.get_json()
-    latitude = data.get("latitude")
-    longitude = data.get("longitude")
-
-    if not latitude or not longitude:
-        return jsonify({"error": "latitude and longitude are required"}), 400
-
-    headers = {
-        'Authorization': "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",
-        'Content-Type': 'application/json'
-    }
-
-    payload = {
-    "request": "pois",
-    "geometry": {
-        "bbox": [
-            longitude - 0.02, latitude - 0.02,
-            longitude + 0.02, latitude + 0.02
-        ]
-    },
-    "filters": {
-        "category_ids": [202, 206]
-    }
-    }
-
     try:
-        response = requests.post(
-            "https://api.openrouteservice.org/pois",
-            headers=headers,
-            json=payload
-        )
-        response.raise_for_status()
-        pois = response.json().get("features", [])
+        data = request.get_json()
+        lat = data.get('latitude')
+        lon = data.get('longitude')
+
+        headers = {
+            'Authorization': '5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629',
+            'Content-Type': 'application/json'
+        }
+
+        query = {
+            "request": "pois",
+            "geometry": {
+                "geojson": {
+                    "type": "Point",
+                    "coordinates": [lon, lat]
+                },
+                "buffer": 2000
+            },
+            "filters": {
+                "category_ids": [206, 202]  # 206 = hospital, 202 = clinic
+            }
+        }
+
+        ors_url = "https://api.openrouteservice.org/pois"
+        response = requests.post(ors_url, headers=headers, json=query)
+        hospitals = []
+
+        if response.status_code == 200:
+            pois = response.json().get("features", [])
+            for poi in pois:
+                props = poi.get("properties", {})
+                category_ids = props.get("category_ids", {})
+                if "206" in category_ids or "202" in category_ids:
+                    hospitals.append({
+                        "name": props.get("osm_tags", {}).get("name", "Unknown"),
+                        "lat": poi.get("geometry", {}).get("coordinates", [])[1],
+                        "lon": poi.get("geometry", {}).get("coordinates", [])[0],
+                        "distance": props.get("distance", "N/A")
+                    })
+
+        return jsonify({
+            "latitude": lat,
+            "longitude": lon,
+            "poi_count": len(hospitals),
+            "hospitals": hospitals
+        })
     except Exception as e:
-        return jsonify({"error": f"ORS API failed: {str(e)}"}), 500
-
-    hospitals = []
-
-    for feature in pois:
-        props = feature.get("properties", {})
-        tags = props.get("osm_tags", {})
-        coords = feature.get("geometry", {}).get("coordinates", [])
-        category_ids = props.get("category_ids", [])
-
-        if 202 in category_ids or 206 in category_ids:
-            hospitals.append({
-                "name": tags.get("name", "Unknown"),
-                "lat": coords[1],
-                "lon": coords[0],
-                "distance": props.get("distance", -1),
-                "address": tags.get("addr:full") or tags.get("addr:street") or tags.get("addr:housename") or "Not Available",
-                "phone": tags.get("phone") or tags.get("contact:phone") or "Not Available"
-            })
-
-    hospitals.sort(key=lambda x: x["distance"] if x["distance"] != -1 else 999999)
-    nearest = hospitals[0] if hospitals else None
-
-    lcd_text = (
-        f"Nearest Hospital:\n{nearest['name']}\n"
-        f"{int(nearest['distance'])}m away\n{nearest['address']}"
-    ) if nearest else "No nearby hospital found"
-
-    return jsonify({
-        "hospitals": hospitals,
-        "nearest_hospital_lcd": lcd_text
-    })
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
