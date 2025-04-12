@@ -13,6 +13,16 @@ def proxy():
     url = request.args.get('url')
     if not url:
         return jsonify({"error": "URL parameter is required"}), 400
+
+    try:
+        headers = {
+            "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629"
+        }
+
+        response = requests.get(url, headers=headers)
+        return jsonify(response.json())
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
         
 @app.route('/test', methods=['POST'])
 def test():
@@ -72,52 +82,51 @@ def get_speed_limit():
         
 @app.route('/get-poi', methods=['POST'])
 def get_poi():
-    data = request.get_json()
-    lat = data.get('latitude')
-    lon = data.get('longitude')
-    
-    headers = {
-        'Authorization': os.getenv('ORS_API_KEY'),
-        'Content-Type': 'application/json'
-    }
-
-    query = {
-        "request": "pois",
-        "geometry": {
-            "geojson": {
-                "type": "Point",
-                "coordinates": [lon, lat]
-            },
-            "buffer": 2000  # 2km radius
+    try:
+        data = request.get_json()
+        lat = data.get('latitude')
+        lon = data.get('longitude')
+        
+        headers = {
+            'Authorization': os.getenv('5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629'),
+            'Content-Type': 'application/json'
         }
-    }
 
-    ors_url = "https://api.openrouteservice.org/pois"
-    response = requests.post(ors_url, headers=headers, json=query)
-    hospitals = []
+        query = {
+            "request": "pois",
+            "geometry": {
+                "geojson": {
+                    "type": "Point",
+                    "coordinates": [lon, lat]
+                },
+                "buffer": 2000  # 2km radius
+            }
+        }
 
-    if response.status_code == 200:
-        pois = response.json().get("features", [])
-        for poi in pois:
-            props = poi.get("properties", {})
-            categories = props.get("category_ids", {})
-            if any(cat.get("category_group") == "healthcare" for cat in categories.values()):
-                hospitals.append({
-                    "name": props.get("osm_tags", {}).get("name"),
-                    "distance": props.get("distance"),
-                    "category": list(categories.values())[0].get("category_name"),
-                    "lat": poi.get("geometry", {}).get("coordinates", [])[1],
-                    "lon": poi.get("geometry", {}).get("coordinates", [])[0]
-                })
+        ors_url = "https://api.openrouteservice.org/pois"
+        response = requests.post(ors_url, headers=headers, json=query)
+        hospitals = []
 
-    return jsonify({
-        "latitude": lat,
-        "longitude": lon,
-        "poi_count": len(hospitals),
-        "hospitals": hospitals
-    })
+        if response.status_code == 200:
+            pois = response.json().get("features", [])
+            for poi in pois:
+                props = poi.get("properties", {})
+                categories = props.get("category_ids", {})
+                if any(cat.get("category_group") == "healthcare" for cat in categories.values()):
+                    hospitals.append({
+                        "name": props.get("osm_tags", {}).get("name"),
+                        "distance": props.get("distance"),
+                        "category": list(categories.values())[0].get("category_name"),
+                        "lat": poi.get("geometry", {}).get("coordinates", [])[1],
+                        "lon": poi.get("geometry", {}).get("coordinates", [])[0]
+                    })
 
-
+        return jsonify({
+            "latitude": lat,
+            "longitude": lon,
+            "poi_count": len(hospitals),
+            "hospitals": hospitals
+        })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
