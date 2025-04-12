@@ -100,6 +100,9 @@ def get_poi():
                     "coordinates": [lon, lat]
                 },
                 "buffer": 2000
+            },
+            "filters": {
+                "category_ids": [206, 202]  # 206 = hospital, 202 = clinic
             }
         }
 
@@ -111,8 +114,8 @@ def get_poi():
             pois = response.json().get("features", [])
             for poi in pois:
                 props = poi.get("properties", {})
-                category_ids = props.get("category_ids", [])
-                if 265 in category_ids or 266 in category_ids:
+                category_ids = props.get("category_ids", {})
+                if "206" in category_ids or "202" in category_ids:
                     hospitals.append({
                         "name": props.get("osm_tags", {}).get("name", "Unknown"),
                         "lat": poi.get("geometry", {}).get("coordinates", [])[1],
