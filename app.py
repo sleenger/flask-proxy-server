@@ -36,7 +36,7 @@ def get_speed_limit():
 
     url = "https://api.openrouteservice.org/v2/directions/driving-car"
     headers = {
-        "Authorization": "your_openrouteservice_api_key",  # Replace this
+        "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",  # Replace this
         "Content-Type": "application/json"
     }
     body = {
