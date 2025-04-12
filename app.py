@@ -79,24 +79,29 @@ def get_poi():
     if not lat or not lon:
         return jsonify({"error": "latitude and longitude are required"}), 400
 
+    # Define bbox around point (5km radius approx)
+    offset = 0.05
+    bbox = [[lon - offset, lat - offset], [lon + offset, lat + offset]]
+
     url = "https://api.openrouteservice.org/pois"
     headers = {
         "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
 
     body = {
         "request": "pois",
         "geometry": {
-            "bbox": [[lon - 0.05, lat - 0.05], [lon + 0.05, lat + 0.05]],
+            "bbox": bbox,
             "geojson": {
                 "type": "Point",
                 "coordinates": [lon, lat]
             },
-            "buffer": 5000
+            "buffer": 2000  # 2km radius
         },
         "filters": {
-            "categories": [211, 213, 214, 216]
+            "category_ids": [211, 213, 214, 216]
         }
     }
 
@@ -105,21 +110,22 @@ def get_poi():
         data = response.json()
 
         features = data.get("features", [])
-        results = []
+        hospitals = []
 
         for feature in features:
-            props = feature["properties"]
-            results.append({
+            props = feature.get("properties", {})
+            geom = feature.get("geometry", {})
+            hospitals.append({
                 "name": props.get("name", "Unknown"),
-                "distance": props.get("distance", "N/A"),
-                "categories": props.get("category_ids", [])
+                "category_ids": props.get("category_ids", []),
+                "coordinates": geom.get("coordinates", []),
             })
 
         return jsonify({
             "latitude": lat,
             "longitude": lon,
-            "poi_count": len(results),
-            "hospitals": results
+            "poi_count": len(hospitals),
+            "hospitals": hospitals
         })
 
     except Exception as e:
