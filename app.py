@@ -99,13 +99,13 @@ def get_poi():
             "buffer": 2500
         },
         "filters": {
-            "category_group_ids": [210]  # Healthcare
+            "category_ids": [202, 206]  # Healthcare
         }
     }
 
     try:
         response = requests.post(
-            "https://api.openrouteservice.org/v2/pois",
+            "https://api.openrouteservice.org/pois",
             headers=headers,
             json=payload
         )
