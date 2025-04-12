@@ -117,14 +117,18 @@ def get_poi():
                         "distance": props.get("distance", "N/A")
                     })
 
+        # Sort the hospitals by distance (in ascending order)
+        hospitals_sorted = sorted(hospitals, key=lambda x: x['distance'])
+
         return jsonify({
             "latitude": lat,
             "longitude": lon,
-            "poi_count": len(hospitals),
-            "hospitals": hospitals
+            "poi_count": len(hospitals_sorted),
+            "hospitals": hospitals_sorted
         })
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
