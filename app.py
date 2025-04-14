@@ -29,51 +29,6 @@ def test():
     data = request.get_json()
     return jsonify({"status": "success", "received": data}), 200
 
-    
-@app.route('/get-speed-limit', methods=['POST'])
-def get_speed_limit():
-    data = request.get_json()
-    lat = data.get("latitude")
-    lon = data.get("longitude")
-
-    if not lat or not lon:
-        return jsonify({"error": "latitude and longitude are required"}), 400
-
-    url = "https://api.openrouteservice.org/v2/directions/driving-car/geojson"
-    headers = {
-        "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",
-        "Content-Type": "application/json"
-    }
-    body = {
-        "coordinates": [[lon, lat], [lon + 0.01, lat + 0.01]]
-    }
-
-    try:
-        response = requests.post(url, json=body, headers=headers)
-        data = response.json()
-
-        if "features" not in data or len(data["features"]) == 0:
-            return jsonify({"error": "No features found in response"}), 500
-
-        properties = data["features"][0]["properties"]
-        segments = properties["segments"][0]
-
-        distance = segments.get("distance", 0)
-        duration = segments.get("duration", 0)
-
-        # Estimate speed limit in km/h
-        speed_limit = round((distance / duration) * 3.6, 1) if duration > 0 else "N/A"
-
-        return jsonify({
-            "latitude": lat,
-            "longitude": lon,
-            "distance": distance,
-            "duration": duration,
-            "estimated_speed_limit": speed_limit
-        })
-    except Exception as e:
-        return jsonify({"error": str(e)}), 500
-        
 @app.route('/get-poi', methods=['POST'])
 def get_poi():
     try:
@@ -146,7 +101,95 @@ def get_poi():
 
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+        
+def estimate_fallback_speed(road_type):
+    if road_type in ["residential", "living_street", "service"]:
+        return 30
+    elif road_type in ["tertiary", "tertiary_link"]:
+        return 40
+    elif road_type in ["secondary", "secondary_link"]:
+        return 50
+    elif road_type in ["primary", "primary_link"]:
+        return 60
+    elif road_type in ["motorway", "motorway_link"]:
+        return 80
+    else:
+        return 35  # default fallback
 
+
+def get_osm_speed_limit(lat, lon):
+    overpass_url = "https://overpass-api.de/api/interpreter"
+    query = f"""
+    [out:json][timeout:25];
+    way(around:100, {lat}, {lon})["highway"];
+    out tags;
+    """
+    try:
+        response = requests.post(overpass_url, data=query)
+        data = response.json()
+        for element in data["elements"]:
+            tags = element.get("tags", {})
+            if "maxspeed" in tags:
+                return float(tags["maxspeed"]), tags.get("highway", "")
+        # No maxspeed but road_type found
+        if data["elements"]:
+            return None, data["elements"][0]["tags"].get("highway", "")
+    except Exception as e:
+        print("Overpass API error:", e)
+    return None, None
+
+
+def get_ors_estimated_speed(lat, lon):
+    try:
+        url = "https://api.openrouteservice.org/v2/directions/driving-car"
+        headers = {
+            "Authorization": "5b3ce3597851110001cf6248b0d2d44302c042159f34a1ef0a4dd629",
+            "Content-Type": "application/json"
+        }
+        body = {
+            "coordinates": [[lon, lat], [lon + 0.001, lat + 0.001]]
+        }
+        res = requests.post(url, headers=headers, json=body)
+        data = res.json()
+        summary = data["features"][0]["properties"]["summary"]
+        distance = summary["distance"] / 1000
+        duration = summary["duration"] / 3600
+        speed = distance / duration
+        return round(speed, 1)
+    except Exception as e:
+        print("ORS speed fallback error:", e)
+        return None
+
+
+@app.route('/get-smart-speed-limit', methods=['POST'])
+def get_smart_speed_limit():
+    content = request.get_json()
+    lat = content.get("latitude")
+    lon = content.get("longitude")
+
+    if lat is None or lon is None:
+        return jsonify({"error": "latitude and longitude are required"}), 400
+
+    speed_limit, road_type = get_osm_speed_limit(lat, lon)
+
+    if speed_limit:
+        source = "overpass"
+    else:
+        speed_limit = get_ors_estimated_speed(lat, lon)
+        source = "ors"
+        if speed_limit is None and road_type:
+            speed_limit = estimate_fallback_speed(road_type)
+            source = f"fallback ({road_type})"
+        elif speed_limit is None:
+            speed_limit = 35
+            source = "default fallback"
+
+    return jsonify({
+        "latitude": lat,
+        "longitude": lon,
+        "estimated_speed_limit": speed_limit,
+        "source": source
+    })
 
 if __name__ == '__main__':
     app.run(debug=True)
