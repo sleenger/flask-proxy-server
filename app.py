@@ -1,10 +1,6 @@
 from flask import Flask, request, jsonify
 import os
 import requests
-<<<<<<< HEAD
-from arduino_iot_cloud import ArduinoCloudClient
-=======
->>>>>>> 31d3e8bc605a91be88b06b3f6ff119098ffd47b3
 
 app = Flask(__name__)
 
