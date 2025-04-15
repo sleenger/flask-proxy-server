@@ -1,12 +1,8 @@
 from flask import Flask, request, jsonify
 import os
 import requests
-from arduino_iot_cloud.client import ArduinoCloudClient
 
 app = Flask(__name__)
-
-DEVICE_ID="eb98aa4d-d5a6-4a70-ae83-b17caa3a9b45"
-SECRET_KEY="0uLCbI77!WwbZ?cHd?Sm6A0qC"
 
 @app.route('/')
 def home():
