@@ -1,9 +1,15 @@
 from flask import Flask, request, jsonify
 import os
 import requests
+from arduino_cloud import ArduinoCloudManager
 
 app = Flask(__name__)
 
+cloud = ArduinoCloudManager(
+    DEVICE_ID="eb98aa4d-d5a6-4a70-ae83-b17caa3a9b45",
+    client_id="eb98aa4d-d5a6-4a70-ae83-b17caa3a9b45",
+    SECRET_KEY="0uLCbI77!WwbZ?cHd?Sm6A0qC"
+)
 @app.route('/')
 def home():
     return '🚀 Flask Proxy Server is Running!'
