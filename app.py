@@ -12,9 +12,9 @@ app = Flask(__name__)
 
 >>>>>>> 621a48c (connnection)
 cloud = ArduinoCloudManager(
-    DEVICE_ID="eb98aa4d-d5a6-4a70-ae83-b17caa3a9b45",
+    device_id="eb98aa4d-d5a6-4a70-ae83-b17caa3a9b45",
     client_id="eb98aa4d-d5a6-4a70-ae83-b17caa3a9b45",
-    SECRET_KEY="0uLCbI77!WwbZ?cHd?Sm6A0qC"
+    client_secret="0uLCbI77!WwbZ?cHd?Sm6A0qC"
 )
 <<<<<<< HEAD
 =======
