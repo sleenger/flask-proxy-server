@@ -26,8 +26,4 @@ class ArduinoCloudManager:
             if prop.name == variable_name:
                 self.client.properties_v2.publish(self.thing_id, prop.id, PropertyValue(value=value))
                 return True
-<<<<<<< HEAD
-        return False
-=======
-        return False
->>>>>>> 621a48c (connnection)
+
