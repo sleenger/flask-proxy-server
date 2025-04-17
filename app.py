@@ -1,12 +1,16 @@
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, render_template
 import os
 import requests
 
 app = Flask(__name__)
 
-@app.route('/')
-def home():
+@app.route('/status')
+def status():
     return '🚀 Flask Proxy Server is Running!'
+
+@app.route("/map")
+def map_page(): 
+    return render_template("map.html", latitude=30.217442, longitude=74.935835)
 
 @app.route('/proxy', methods=['GET'])
 def proxy():
