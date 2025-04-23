@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>GPS Location Map</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.3/dist/leaflet.css" />
+  <link rel="stylesheet" href="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.css" />
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      height: 100%;
+      overflow: hidden;
+      font-family: sans-serif;
+    }
+
+    #map {
+      position: absolute;
+      top: 50px;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1;
+    }
+
+    #showBtn {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 999;
+      padding: 10px 20px;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 8px;
+      font-size: 16px;
+      cursor: pointer;
+      box-shadow: 0px 2px 5px rgba(0,0,0,0.2);
+    }
+
+    #sidePanel {
+      position: absolute;
+      top: 60px;
+      right: 10px;
+      width: 300px;
+      max-height: 80vh;
+      background-color: #ffffffdd;
+      border-radius: 8px;
+      box-shadow: 0px 2px 10px rgba(0,0,0,0.3);
+      padding: 15px;
+      overflow-y: auto;
+      z-index: 999;
+      display: none;
+    }
+
+    .hospital-name {
+      font-weight: bold;
+      font-size: 14px;
+      color: black;
+    }
+
+    .direction-link {
+      font-size: 14px;
+      color: #007bff;
+      text-decoration: none;
+    }
+
+    .directions-box {
+      font-size: 14px;
+      line-height: 1.5;
+    }
+  </style>
+</head>
+<body>
+
+<button id="showBtn">🧭 Show Nearby Hospitals</button>
+<div id="map"></div>
+<div id="sidePanel"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
+
+<script>
+  const lat = 30.217442;
+  const lon = 74.935835;
+  const map = L.map('map').setView([lat, lon], 16);
+
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+    attribution: '&copy; OpenStreetMap contributors & CartoDB',
+  }).addTo(map);
+
+  L.marker([lat, lon]).addTo(map)
+    .bindPopup('📍 Your current location')
+    .openPopup();
+
+  let poiLoaded = false;
+  let routeControl = null;
+
+  const hospitalIcon = L.divIcon({
+    className: 'hospital-icon',
+    html: '<div style="background-color:red; color:white; font-weight:bold; text-align:center; border-radius:50%; width:18px; height:18px; line-height:18px; font-size:14px;">+</div>',
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -30]
+  });
+
+  document.getElementById('showBtn').addEventListener('click', () => {
+    if (poiLoaded) return;
+    poiLoaded = true;
+
+    setTimeout(() => {
+      fetch("https://flask-proxy-server-iieo.onrender.com/get-poi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ latitude: lat, longitude: lon })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (!data.hospitals || data.hospitals.length === 0) {
+          alert("😕 No hospitals found nearby.");
+          return;
+        }
+
+        data.hospitals.forEach(h => {
+          const popupContent = `
+            <div>
+              <div class="hospital-name">🏥 ${h.name}</div>
+              <div>📏 ${h.distance.toFixed(1)} meters</div>
+              <a href="#" class="direction-link" onclick="showDirections(${h.lat}, ${h.lon}, '${h.name}')">Get Directions</a>
+            </div>
+          `;
+          L.marker([h.lat, h.lon], { icon: hospitalIcon }).addTo(map)
+            .bindPopup(popupContent)
+            .openPopup();
+        });
+      })
+      .catch(err => {
+        console.error("❌ Failed to fetch POIs:", err);
+        alert("Failed to load POIs");
+      });
+    }, 20000);
+  });
+
+  function showDirections(hospitalLat, hospitalLon, hospitalName) {
+    if (routeControl) {
+      map.removeControl(routeControl);
+    }
+
+    routeControl = L.Routing.control({
+      waypoints: [
+        L.latLng(lat, lon),
+        L.latLng(hospitalLat, hospitalLon)
+      ],
+      routeWhileDragging: true,
+      show: false
+    }).addTo(map);
+
+    const panel = document.getElementById("sidePanel");
+    panel.style.display = "block";
+    panel.innerHTML = `
+      <div class="directions-box">
+        <h3>Directions to 🏥 ${hospitalName}</h3>
+        <p>📏 Distance: ${L.latLng(lat, lon).distanceTo([hospitalLat, hospitalLon]).toFixed(0)} meters</p>
+        <div id="directions"></div>
+      </div>
+    `;
+
+    routeControl.on('routesfound', function(e) {
+      const routes = e.routes[0];
+      let steps = routes.instructions || routes.summary;
+      let directions = "<ul>";
+      routes.instructions.forEach(step => {
+        directions += `<li>${step.text}</li>`;
+      });
+      directions += "</ul>";
+      document.getElementById("directions").innerHTML = directions;
+    });
+  }
+</script>
+
+</body>
+</html>
