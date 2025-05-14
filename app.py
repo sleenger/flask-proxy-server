@@ -2,6 +2,7 @@ from flask import Flask, request, jsonify, render_template
 import os
 import requests
 from flask_cors import CORS
+latest_location = {"lat": 30.217442, "lon": 74.935835}  # default location
 
 app = Flask(__name__)
 CORS(app)
@@ -196,6 +197,17 @@ def get_smart_speed_limit():
         "estimated_speed_limit": speed_limit,
         "source": source
     })
+@app.route('/update-location', methods=['POST'])
+def update_location():
+    global latest_location
+    data = request.get_json()
+    if 'latitude' in data and 'longitude' in data:
+        latest_location = {"lat": data["latitude"], "lon": data["longitude"]}
+        return jsonify({"status": "Location updated"}), 200
+    return jsonify({"error": "Invalid data"}), 400
 
+@app.route('/get-location')
+def get_location():
+    return jsonify(latest_location)
 if __name__ == '__main__':
     app.run(debug=True)
