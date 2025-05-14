@@ -83,9 +83,47 @@
 <script src="https://unpkg.com/leaflet-routing-machine@latest/dist/leaflet-routing-machine.min.js"></script>
 
 <script>
-  const lat = 30.217442;
-  const lon = 74.935835;
-  const map = L.map('map').setView([lat, lon], 16);
+  let map;
+  let currentMarker;
+
+  async function initMap() {
+    try {
+      const res = await fetch("/get-location");
+      const data = await res.json();
+      const lat = data.lat;
+      const lon = data.lon;
+
+      map = L.map('map').setView([lat, lon], 16);
+      L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        attribution: '&copy; OpenStreetMap contributors & CartoDB',
+      }).addTo(map);
+
+      currentMarker = L.marker([lat, lon]).addTo(map)
+        .bindPopup('📍 Your current location')
+        .openPopup();
+
+    } catch (err) {
+      console.error("Error loading location:", err);
+    }
+  }
+
+  async function updateMarker() {
+    try {
+      const res = await fetch("/get-location");
+      const data = await res.json();
+      const lat = data.lat;
+      const lon = data.lon;
+
+      currentMarker.setLatLng([lat, lon]);
+      map.setView([lat, lon]);
+
+    } catch (err) {
+      console.error("Error updating location:", err);
+    }
+  }
+
+  initMap();
+  setInterval(updateMarker, 5000); // Update every 5 seconds
 
   L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
     attribution: '&copy; OpenStreetMap contributors & CartoDB',
