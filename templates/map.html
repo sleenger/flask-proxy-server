@@ -186,25 +186,31 @@
 
     const panel = document.getElementById("sidePanel");
     panel.style.display = "block";
-    panel.innerHTML = `
-      <div class="directions-box">
-        <h3>Directions to 🏥 ${hospitalName}</h3>
-        <p>📏 Distance: ${L.latLng(currentLat, currentLon).distanceTo([hospitalLat, hospitalLon]).toFixed(0)} meters</p>
-        <div id="directions"></div>
-      </div>
-    `;
+   panel.innerHTML = `
+  <div class="directions-box">
+    <h3>Directions to 🏥 ${hospitalName}</h3>
+    <p id="roadDistance">📏 Calculating road distance...</p>
+    <div id="directions"></div>
+  </div>
+`;
 
-    routeControl.on('routesfound', function(e) {
-      const steps = e.routes[0].instructions || [];
-      let directions = "<ul>";
-      steps.forEach(step => {
-        directions += `<li>${step.text}</li>`;
-      });
-      directions += "</ul>";
-      document.getElementById("directions").innerHTML = directions;
-    });
-  }
+routeControl.on('routesfound', function(e) {
+  const route = e.routes[0];
+  const steps = route.instructions || route.summary;
 
+  // ✅ Replace the placeholder with actual road distance
+  const meters = route.summary.totalDistance;
+  document.getElementById("roadDistance").textContent = `📏 Distance: ${meters < 1000 ? meters.toFixed(0) + " meters" : (meters / 1000).toFixed(2) + " km"}`;
+
+  // ➤ Show turn-by-turn instructions
+  let directions = "<ul>";
+  steps.forEach(step => {
+    directions += `<li>${step.text}</li>`;
+  });
+  directions += "</ul>";
+  document.getElementById("directions").innerHTML = directions;
+});
+}
   initMap();
   setInterval(updateMarker, 5000);
 </script>
