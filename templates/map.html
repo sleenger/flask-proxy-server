@@ -85,20 +85,32 @@
 <script>
   let map;
   let currentMarker;
+  let currentLat = 0;
+  let currentLon = 0;
+  let poiLoaded = false;
+  let routeControl = null;
+
+  const hospitalIcon = L.divIcon({
+    className: 'hospital-icon',
+    html: '<div style="background-color:red; color:white; font-weight:bold; text-align:center; border-radius:50%; width:18px; height:18px; line-height:18px; font-size:14px;">+</div>',
+    iconSize: [18, 18],
+    iconAnchor: [9, 9],
+    popupAnchor: [0, -30]
+  });
 
   async function initMap() {
     try {
       const res = await fetch("/get-location");
       const data = await res.json();
-      const lat = data.lat;
-      const lon = data.lon;
+      currentLat = data.lat;
+      currentLon = data.lon;
 
-      map = L.map('map').setView([lat, lon], 16);
+      map = L.map('map').setView([currentLat, currentLon], 16);
       L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
         attribution: '&copy; OpenStreetMap contributors & CartoDB',
       }).addTo(map);
 
-      currentMarker = L.marker([lat, lon]).addTo(map)
+      currentMarker = L.marker([currentLat, currentLon]).addTo(map)
         .bindPopup('📍 Your current location')
         .openPopup();
 
@@ -111,74 +123,51 @@
     try {
       const res = await fetch("/get-location");
       const data = await res.json();
-      const lat = data.lat;
-      const lon = data.lon;
+      currentLat = data.lat;
+      currentLon = data.lon;
 
-      currentMarker.setLatLng([lat, lon]);
-      map.setView([lat, lon]);
+      if (currentMarker) {
+        currentMarker.setLatLng([currentLat, currentLon]);
+        map.setView([currentLat, currentLon]);
+      }
 
     } catch (err) {
       console.error("Error updating location:", err);
     }
   }
 
-  initMap();
-  setInterval(updateMarker, 5000); // Update every 5 seconds
-
-  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-    attribution: '&copy; OpenStreetMap contributors & CartoDB',
-  }).addTo(map);
-
-  L.marker([lat, lon]).addTo(map)
-    .bindPopup('📍 Your current location')
-    .openPopup();
-
-  let poiLoaded = false;
-  let routeControl = null;
-
-  const hospitalIcon = L.divIcon({
-    className: 'hospital-icon',
-    html: '<div style="background-color:red; color:white; font-weight:bold; text-align:center; border-radius:50%; width:18px; height:18px; line-height:18px; font-size:14px;">+</div>',
-    iconSize: [18, 18],
-    iconAnchor: [9, 9],
-    popupAnchor: [0, -30]
-  });
-
   document.getElementById('showBtn').addEventListener('click', () => {
     if (poiLoaded) return;
     poiLoaded = true;
 
-    setTimeout(() => {
-      fetch("https://flask-proxy-server-iieo.onrender.com/get-poi", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ latitude: lat, longitude: lon })
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (!data.hospitals || data.hospitals.length === 0) {
-          alert("😕 No hospitals found nearby.");
-          return;
-        }
+    fetch("https://flask-proxy-server-iieo.onrender.com/get-poi", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ latitude: currentLat, longitude: currentLon })
+    })
+    .then(res => res.json())
+    .then(data => {
+      if (!data.hospitals || data.hospitals.length === 0) {
+        alert("😕 No hospitals found nearby.");
+        return;
+      }
 
-        data.hospitals.forEach(h => {
-          const popupContent = `
-            <div>
-              <div class="hospital-name">🏥 ${h.name}</div>
-              <div>📏 ${h.distance.toFixed(1)} meters</div>
-              <a href="#" class="direction-link" onclick="showDirections(${h.lat}, ${h.lon}, '${h.name}')">Get Directions</a>
-            </div>
-          `;
-          L.marker([h.lat, h.lon], { icon: hospitalIcon }).addTo(map)
-            .bindPopup(popupContent)
-            .openPopup();
-        });
-      })
-      .catch(err => {
-        console.error("❌ Failed to fetch POIs:", err);
-        alert("Failed to load POIs");
+      data.hospitals.forEach(h => {
+        const popupContent = `
+          <div>
+            <div class="hospital-name">🏥 ${h.name}</div>
+            <div>📏 ${h.distance.toFixed(1)} meters</div>
+            <a href="#" class="direction-link" onclick="showDirections(${h.lat}, ${h.lon}, '${h.name.replace(/'/g, "\\'")}')">Get Directions</a>
+          </div>
+        `;
+        L.marker([h.lat, h.lon], { icon: hospitalIcon }).addTo(map)
+          .bindPopup(popupContent);
       });
-    }, 20000);
+    })
+    .catch(err => {
+      console.error("❌ Failed to fetch POIs:", err);
+      alert("Failed to load POIs");
+    });
   });
 
   function showDirections(hospitalLat, hospitalLon, hospitalName) {
@@ -188,10 +177,10 @@
 
     routeControl = L.Routing.control({
       waypoints: [
-        L.latLng(lat, lon),
+        L.latLng(currentLat, currentLon),
         L.latLng(hospitalLat, hospitalLon)
       ],
-      routeWhileDragging: true,
+      routeWhileDragging: false,
       show: false
     }).addTo(map);
 
@@ -200,22 +189,24 @@
     panel.innerHTML = `
       <div class="directions-box">
         <h3>Directions to 🏥 ${hospitalName}</h3>
-        <p>📏 Distance: ${L.latLng(lat, lon).distanceTo([hospitalLat, hospitalLon]).toFixed(0)} meters</p>
+        <p>📏 Distance: ${L.latLng(currentLat, currentLon).distanceTo([hospitalLat, hospitalLon]).toFixed(0)} meters</p>
         <div id="directions"></div>
       </div>
     `;
 
     routeControl.on('routesfound', function(e) {
-      const routes = e.routes[0];
-      let steps = routes.instructions || routes.summary;
+      const steps = e.routes[0].instructions || [];
       let directions = "<ul>";
-      routes.instructions.forEach(step => {
+      steps.forEach(step => {
         directions += `<li>${step.text}</li>`;
       });
       directions += "</ul>";
       document.getElementById("directions").innerHTML = directions;
     });
   }
+
+  initMap();
+  setInterval(updateMarker, 5000);
 </script>
 
 </body>
